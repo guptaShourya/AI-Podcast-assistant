@@ -1,6 +1,6 @@
 import logging
 import ssl
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 # Fix macOS SSL certificate issue for feedparser (urllib)
 if hasattr(ssl, "_create_default_https_context"):
     ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+
+# Only ingest episodes published within this window
+LOOKBACK_HOURS = 24
 
 
 def load_feeds_from_yaml() -> list[dict]:
@@ -66,21 +69,35 @@ def _parse_published(entry: feedparser.FeedParserDict) -> datetime | None:
 
 
 async def poll_feed(rss_url: str, podcast_id: int) -> int:
-    """Parse a single RSS feed and insert new episodes. Returns count of new episodes."""
+    """Parse a single RSS feed and insert new episodes from the last 24h. Returns count of new episodes."""
     feed = feedparser.parse(rss_url)
 
     if feed.bozo and not feed.entries:
         logger.error("Failed to parse feed %s: %s", rss_url, feed.bozo_exception)
         return 0
 
-    all_guids = [entry.get("id", entry.get("link", "")) for entry in feed.entries]
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)
+
+    # Pre-filter to recent entries only
+    recent_entries = []
+    for entry in feed.entries:
+        published = _parse_published(entry)
+        if published and published < cutoff:
+            continue  # Skip old episodes
+        recent_entries.append(entry)
+
+    if not recent_entries:
+        logger.info("No recent episodes in %s", rss_url)
+        return 0
+
+    all_guids = [entry.get("id", entry.get("link", "")) for entry in recent_entries]
     all_guids = [g for g in all_guids if g]
 
     async with async_session() as session:
         existing = await get_existing_guids(session, all_guids)
 
         new_episodes = []
-        for entry in feed.entries:
+        for entry in recent_entries:
             guid = entry.get("id", entry.get("link", ""))
             if not guid or guid in existing:
                 continue

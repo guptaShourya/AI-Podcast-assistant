@@ -5,20 +5,23 @@ from fastapi import FastAPI
 
 from app.db.database import engine
 from app.db.models import Base
+from app.scheduler.jobs import start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables
+    # Startup: create tables + start scheduler
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created")
+    start_scheduler()
 
     yield
 
     # Shutdown
+    stop_scheduler()
     await engine.dispose()
     logger.info("Database engine disposed")
 
