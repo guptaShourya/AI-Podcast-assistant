@@ -807,7 +807,9 @@ h1 {
   height: 2px;
   background: var(--text);
   border-radius: 1px;
-  transition: transform 0.2s, opacity 0.2s;
+  transition:
+    transform 0.2s,
+    opacity 0.2s;
 }
 
 /* ── Sidebar Toggle (mobile chat) ────────── */
