@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Podcasts — Podcast Assistant{% endblock %}
+
+{% block content %}
+<h1>Podcast Subscriptions</h1>
+<p class="subtitle">Manage your podcast feeds</p>
+
+<form class="add-form" method="post" action="/ui/podcasts/add">
+  <input type="url" name="rss_url" placeholder="Paste RSS feed URL..." required>
+  <button type="submit" class="btn btn-primary">+ Add</button>
+</form>
+
+{% if podcasts %}
+  {% for p in podcasts %}
+    <div class="podcast-item">
+      <div class="info">
+        <h3>{{ p.name }}</h3>
+        <span class="url">{{ p.rss_url }}</span>
+      </div>
+      <form method="post" action="/ui/podcasts/{{ p.id }}/delete" style="margin: 0;">
+        <button type="submit" class="btn btn-danger" onclick="return confirm('Remove {{ p.name }}?')">Remove</button>
+      </form>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty">
+    <p>No subscriptions yet. Add a podcast RSS feed above.</p>
+  </div>
+{% endif %}
+{% endblock %}

@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.db.database import engine
 from app.db.models import Base
@@ -44,8 +45,11 @@ def create_app() -> FastAPI:
     )
 
     from app.api.routes import router
+    from app.ui.views import router as ui_router
 
     app.include_router(router)
+    app.include_router(ui_router)
+    app.mount("/static", StaticFiles(directory="app/ui/static"), name="static")
     app.mount("/", mcp_app)
 
     return app
