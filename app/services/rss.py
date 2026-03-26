@@ -1,8 +1,10 @@
 import logging
+import ssl
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
+import certifi
 import feedparser
 import yaml
 
@@ -11,6 +13,10 @@ from app.db.crud import create_episodes_bulk, create_podcast, get_existing_guids
 from app.db.database import async_session
 
 logger = logging.getLogger(__name__)
+
+# Fix macOS SSL certificate issue for feedparser (urllib)
+if hasattr(ssl, "_create_default_https_context"):
+    ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
 
 
 def load_feeds_from_yaml() -> list[dict]:

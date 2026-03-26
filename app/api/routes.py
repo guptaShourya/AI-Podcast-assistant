@@ -15,6 +15,7 @@ from app.db import crud
 from app.db.database import get_session
 from app.db.models import EpisodeStatus
 from app.services.rss import poll_all_feeds, sync_feeds_from_yaml
+from app.services.pipeline import process_pending_episodes
 
 logger = logging.getLogger(__name__)
 
@@ -96,5 +97,10 @@ async def daily_digest(session: AsyncSession = Depends(get_session)):
 @router.post("/process")
 async def trigger_processing():
     await sync_feeds_from_yaml()
-    results = await poll_all_feeds()
-    return {"message": "Processing triggered", "new_episodes": results}
+    poll_results = await poll_all_feeds()
+    processed = await process_pending_episodes()
+    return {
+        "message": "Processing complete",
+        "new_episodes_found": poll_results,
+        "episodes_processed": processed,
+    }
