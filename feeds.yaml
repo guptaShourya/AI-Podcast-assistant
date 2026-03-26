@@ -1,0 +1,9 @@
+feeds:
+  - name: "Lex Fridman Podcast"
+    rss_url: "https://lexfridman.com/feed/podcast/"
+
+  - name: "Huberman Lab"
+    rss_url: "https://feeds.megaphone.fm/hubermanlab"
+
+  - name: "The Daily (NYT)"
+    rss_url: "https://feeds.simplecast.com/54nAGcIl"
