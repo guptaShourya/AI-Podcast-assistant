@@ -211,6 +211,12 @@ function renderMarkdown(text) {
   });
 
   // Inline: bold, italic, code, score badges
+  // Dual score: **[8/10] Title** · Relevance: 6/10
+  html = html.replace(
+    /\*\*\[(\d+)\/10\]\s*(.+?)\*\*\s*·\s*Relevance:\s*(\d+)\/10/g,
+    '<span class="md-score-line"><span class="md-score" data-score="$1">$1</span> <strong>$2</strong> <span class="md-relevance" data-score="$3">⎯ $3<small>/10 relevance</small></span></span>',
+  );
+  // Single score fallback (no objective)
   html = html.replace(
     /\*\*\[(\d+)\/10\]\s*(.+?)\*\*/g,
     '<span class="md-score-line"><span class="md-score" data-score="$1">$1</span> <strong>$2</strong></span>',
@@ -247,14 +253,18 @@ function renderMarkdown(text) {
     "<br><br>",
   );
 
-  // Colorize score badges
-  html = html.replace(/data-score="(\d+)"/g, function (_, s) {
+  // Colorize listen score badges
+  html = html.replace(/class="md-score" data-score="(\d+)"/g, function (_, s) {
     const n = parseInt(s);
     const cls = n >= 7 ? "high" : n >= 4 ? "mid" : "low";
-    return 'data-score="' + s + '" class="md-score md-score-' + cls + '"';
+    return 'class="md-score md-score-' + cls + '" data-score="' + s + '"';
   });
-  // Fix double class attr from above
-  html = html.replace(/class="md-score" (class="md-score[^"]*")/g, "$1");
+  // Colorize relevance badges
+  html = html.replace(/class="md-relevance" data-score="(\d+)"/g, function (_, s) {
+    const n = parseInt(s);
+    const cls = n >= 7 ? "high" : n >= 4 ? "mid" : "low";
+    return 'class="md-relevance md-rel-' + cls + '" data-score="' + s + '"';
+  });
 
   return "<p>" + html + "</p>";
 }

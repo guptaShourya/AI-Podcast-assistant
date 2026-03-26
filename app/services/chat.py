@@ -232,7 +232,7 @@ FORMATTING RULES — Follow these strictly for every response:
 - Use **bold** for episode titles, podcast names, and key terms
 - For the daily digest or episode lists, use this EXACT card format for each episode:
 
-> **[SCORE/10] Episode Title**
+> **[SCORE/10] Episode Title** · Relevance: RELEVANCE/10
 > *Podcast Name* · Duration
 >
 > One-sentence summary of what this episode covers.
@@ -240,6 +240,9 @@ FORMATTING RULES — Follow these strictly for every response:
 > **Key Topics:** topic1, topic2, topic3
 >
 > **Why it matters:** One sentence connecting this to the user's interests/objective.
+
+- The SCORE is the general listen-worthiness from the database. The RELEVANCE score (1-10) is YOUR assessment of how useful this episode is for the user's chat objective. If the chat has no objective, omit the Relevance score.
+- Sort episodes by Relevance score (highest first) when an objective is set, not by listen score.
 
 - Use `---` between episode cards
 - For highlights or key takeaways, use numbered lists (1. 2. 3.) not bullets

@@ -637,18 +637,33 @@ h1 {
   flex-shrink: 0;
 }
 
-.md-score-high {
-  background: rgba(52, 211, 153, 0.15);
-  color: var(--green);
+.md-score-high { background: rgba(52, 211, 153, 0.15); color: var(--green); }
+.md-score-mid  { background: rgba(251, 191, 36, 0.15); color: var(--yellow); }
+.md-score-low  { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+
+/* ── Relevance badge ─────────────────────── */
+
+.md-relevance {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.55rem;
+  border-radius: 1rem;
+  margin-left: 0.25rem;
+  flex-shrink: 0;
 }
-.md-score-mid {
-  background: rgba(251, 191, 36, 0.15);
-  color: var(--yellow);
+
+.md-relevance small {
+  font-weight: 400;
+  opacity: 0.7;
+  font-size: 0.68rem;
 }
-.md-score-low {
-  background: rgba(248, 113, 113, 0.15);
-  color: var(--red);
-}
+
+.md-rel-high { background: rgba(52, 211, 153, 0.12); color: var(--green); }
+.md-rel-mid  { background: rgba(251, 191, 36, 0.12); color: var(--yellow); }
+.md-rel-low  { background: rgba(248, 113, 113, 0.12); color: var(--red); }
 
 .msg-bubble strong {
   color: var(--text);
