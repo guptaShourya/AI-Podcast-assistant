@@ -1,7 +1,7 @@
 import logging
 
 import feedparser
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +34,7 @@ async def list_podcasts(session: AsyncSession = Depends(get_session)):
 
 
 @router.post("/podcasts", response_model=PodcastResponse, status_code=201)
-async def add_podcast(body: PodcastCreate, session: AsyncSession = Depends(get_session)):
+async def add_podcast(body: PodcastCreate, session: AsyncSession = Depends(get_session), background_tasks: BackgroundTasks = BackgroundTasks()):
     existing = await crud.get_podcast_by_rss_url(session, body.rss_url)
     if existing:
         raise HTTPException(status_code=409, detail="Podcast already subscribed")
@@ -48,7 +48,14 @@ async def add_podcast(body: PodcastCreate, session: AsyncSession = Depends(get_s
     if not body.name:
         image_url = feed.feed.get("image", {}).get("href")
 
-    return await crud.create_podcast(session, name=name, rss_url=body.rss_url, image_url=image_url)
+    podcast = await crud.create_podcast(session, name=name, rss_url=body.rss_url, image_url=image_url)
+    # Immediately poll the new feed for recent episodes
+    from app.services.rss import poll_feed
+    await poll_feed(body.rss_url, podcast.id)
+    # Process (transcribe + summarize) in the background
+    from app.services.pipeline import process_pending_episodes
+    background_tasks.add_task(process_pending_episodes)
+    return podcast
 
 
 @router.delete("/podcasts/{podcast_id}", status_code=204)

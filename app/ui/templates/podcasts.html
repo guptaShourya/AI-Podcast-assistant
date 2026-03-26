@@ -3,15 +3,28 @@ endblock %} {% block content %}
 <h1>Podcast Subscriptions</h1>
 <p class="subtitle">Manage your podcast feeds</p>
 
-<form class="add-form" method="post" action="/ui/podcasts/add">
+<form class="add-form" id="add-form" method="post" action="/ui/podcasts/add">
   <input
     type="url"
     name="rss_url"
     placeholder="Paste RSS feed URL..."
     required
   />
-  <button type="submit" class="btn btn-primary">+ Add</button>
+  <button type="submit" class="btn btn-primary" id="add-btn">+ Add</button>
 </form>
+
+<!-- Loader shown while adding -->
+<div class="add-loader" id="add-loader" style="display: none">
+  <div class="spinner"></div>
+  <span>Adding podcast & fetching episodes…</span>
+</div>
+
+<script>
+  document.getElementById("add-form").addEventListener("submit", function () {
+    document.getElementById("add-btn").disabled = true;
+    document.getElementById("add-loader").style.display = "flex";
+  });
+</script>
 
 {% if podcasts %} {% for p in podcasts %}
 <div class="podcast-item">

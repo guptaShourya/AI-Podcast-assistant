@@ -193,6 +193,22 @@ function scrollToBottom() {
   container.scrollTop = container.scrollHeight;
 }
 
+function showTypingIndicator() {
+  const container = document.getElementById("messages");
+  const wrapper = document.createElement("div");
+  wrapper.className = "msg msg-assistant typing-indicator";
+  wrapper.innerHTML =
+    '<div class="msg-bubble typing-bubble">' +
+    '<span class="dot"></span><span class="dot"></span><span class="dot"></span>' +
+    "</div>";
+  container.appendChild(wrapper);
+  return wrapper;
+}
+
+function removeTypingIndicator(el) {
+  if (el && el.parentNode) el.remove();
+}
+
 // ── Markdown (rich formatting) ───────────────────────────────
 
 function renderMarkdown(text) {
@@ -299,6 +315,9 @@ async function sendMessage(e) {
 
   // Show user message
   appendMessage("user", msg);
+
+  // Show typing indicator immediately
+  const typingEl = showTypingIndicator();
   scrollToBottom();
 
   // Create conversation if none selected
@@ -351,12 +370,14 @@ async function sendMessage(e) {
             currentConversationId = event.conversation_id;
             history.replaceState(null, "", "/ui/chat/" + event.conversation_id);
           } else if (event.type === "tool") {
-            // Remove previous tool pill if any
+            // Remove typing indicator & previous tool pill
+            removeTypingIndicator(typingEl);
             if (activeTool) activeTool.remove();
             activeTool = appendToolStatus(event.name);
             scrollToBottom();
           } else if (event.type === "text") {
-            // Remove tool status when text starts
+            // Remove typing indicator & tool status when text starts
+            removeTypingIndicator(typingEl);
             if (activeTool) {
               activeTool.remove();
               activeTool = null;
@@ -374,6 +395,7 @@ async function sendMessage(e) {
       }
     }
   } catch (err) {
+    removeTypingIndicator(typingEl);
     if (!assistantBubble) {
       assistantBubble = appendMessage("assistant", "");
     }
