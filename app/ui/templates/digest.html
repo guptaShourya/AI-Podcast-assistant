@@ -1,39 +1,40 @@
-{% extends "base.html" %}
-{% block title %}Daily Digest — Podcast Assistant{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Daily Digest — Podcast Assistant{%
+endblock %} {% block content %}
 <h1>Daily Digest</h1>
-<p class="subtitle">Episodes from the last 24 hours, ranked by listen-worthiness</p>
+<p class="subtitle">
+  Episodes from the last 24 hours, ranked by listen-worthiness
+</p>
 
-{% if digest %}
-  {% for item in digest %}
-    <a href="/ui/episode/{{ item.episode.id }}" style="text-decoration: none; color: inherit;">
-      <div class="card">
-        <div class="card-header">
-          <div class="score {{ 'high' if item.summary.listen_score >= 7 else 'mid' if item.summary.listen_score >= 4 else 'low' }}">
-            {{ item.summary.listen_score }}
-          </div>
-          <div class="info">
-            <h3>{{ item.episode.title }}</h3>
-            <span class="podcast-name">{{ item.podcast_name }}
-              {% if item.episode.duration_seconds %}
-                · {{ (item.episode.duration_seconds // 60) }} min
-              {% endif %}
-            </span>
-          </div>
-        </div>
-        <p>{{ item.summary.summary_text }}</p>
-        <div class="topics">
-          {% for topic in item.summary.key_topics %}
-            <span class="topic-tag">{{ topic }}</span>
-          {% endfor %}
-        </div>
+{% if digest %} {% for item in digest %}
+<a
+  href="/ui/episode/{{ item.episode.id }}"
+  style="text-decoration: none; color: inherit"
+>
+  <div class="card">
+    <div class="card-header">
+      <div
+        class="score {{ 'high' if item.summary.listen_score >= 7 else 'mid' if item.summary.listen_score >= 4 else 'low' }}"
+      >
+        {{ item.summary.listen_score }}
       </div>
-    </a>
-  {% endfor %}
-{% else %}
-  <div class="empty">
-    <p>No summaries yet. Episodes will appear here after processing.</p>
+      <div class="info">
+        <h3>{{ item.episode.title }}</h3>
+        <span class="podcast-name"
+          >{{ item.podcast_name }} {% if item.episode.duration_seconds %} · {{
+          (item.episode.duration_seconds // 60) }} min {% endif %}
+        </span>
+      </div>
+    </div>
+    <p>{{ item.summary.summary_text }}</p>
+    <div class="topics">
+      {% for topic in item.summary.key_topics %}
+      <span class="topic-tag">{{ topic }}</span>
+      {% endfor %}
+    </div>
   </div>
-{% endif %}
-{% endblock %}
+</a>
+{% endfor %} {% else %}
+<div class="empty">
+  <p>No summaries yet. Episodes will appear here after processing.</p>
+</div>
+{% endif %} {% endblock %}

@@ -4,7 +4,7 @@ from sqlalchemy import String, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Episode, EpisodeStatus, Podcast, Summary
+from app.db.models import Conversation, Episode, EpisodeStatus, Message, MessageRole, Podcast, Summary
 
 
 # ── Podcast CRUD ──────────────────────────────────────────────
@@ -142,6 +142,7 @@ async def search_episodes(session: AsyncSession, query: str) -> list[dict]:
                 Episode.title.ilike(pattern),
                 Summary.summary_text.ilike(pattern),
                 Summary.key_topics.cast(String).ilike(pattern),
+                Summary.transcript_text.ilike(pattern),
             )
         )
         .order_by(Summary.listen_score.desc())
@@ -156,3 +157,120 @@ async def search_episodes(session: AsyncSession, query: str) -> list[dict]:
         for ep in episodes
         if ep.summary
     ]
+
+
+# ── Podcast Category ─────────────────────────────────────────
+
+
+async def update_podcast_category(session: AsyncSession, podcast_id: int, category: str) -> bool:
+    result = await session.execute(select(Podcast).where(Podcast.id == podcast_id))
+    podcast = result.scalar_one_or_none()
+    if not podcast:
+        return False
+    podcast.category = category
+    await session.commit()
+    return True
+
+
+# ── Conversation CRUD ─────────────────────────────────────────
+
+
+async def create_conversation(
+    session: AsyncSession, title: str = "New Chat", objective: str | None = None
+) -> Conversation:
+    conv = Conversation(title=title, objective=objective)
+    session.add(conv)
+    await session.commit()
+    await session.refresh(conv)
+    return conv
+
+
+async def get_conversations(session: AsyncSession) -> list[Conversation]:
+    result = await session.execute(
+        select(Conversation).order_by(Conversation.updated_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_conversation(session: AsyncSession, conversation_id: int) -> Conversation | None:
+    result = await session.execute(
+        select(Conversation).where(Conversation.id == conversation_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_conversation_messages(session: AsyncSession, conversation_id: int) -> list[Message]:
+    result = await session.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.asc())
+    )
+    return list(result.scalars().all())
+
+
+async def add_message(
+    session: AsyncSession,
+    conversation_id: int,
+    role: MessageRole,
+    content: str | None = None,
+    tool_calls: list | None = None,
+    tool_call_id: str | None = None,
+) -> Message:
+    msg = Message(
+        conversation_id=conversation_id,
+        role=role,
+        content=content,
+        tool_calls=tool_calls,
+        tool_call_id=tool_call_id,
+    )
+    session.add(msg)
+    # Touch conversation updated_at
+    conv_result = await session.execute(
+        select(Conversation).where(Conversation.id == conversation_id)
+    )
+    conv = conv_result.scalar_one_or_none()
+    if conv:
+        conv.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    await session.refresh(msg)
+    return msg
+
+
+async def delete_conversation(session: AsyncSession, conversation_id: int) -> bool:
+    result = await session.execute(
+        select(Conversation).where(Conversation.id == conversation_id)
+    )
+    conv = result.scalar_one_or_none()
+    if not conv:
+        return False
+    await session.delete(conv)
+    await session.commit()
+    return True
+
+
+async def update_conversation_objective(
+    session: AsyncSession, conversation_id: int, objective: str
+) -> bool:
+    result = await session.execute(
+        select(Conversation).where(Conversation.id == conversation_id)
+    )
+    conv = result.scalar_one_or_none()
+    if not conv:
+        return False
+    conv.objective = objective
+    await session.commit()
+    return True
+
+
+async def update_conversation_title(
+    session: AsyncSession, conversation_id: int, title: str
+) -> bool:
+    result = await session.execute(
+        select(Conversation).where(Conversation.id == conversation_id)
+    )
+    conv = result.scalar_one_or_none()
+    if not conv:
+        return False
+    conv.title = title
+    await session.commit()
+    return True

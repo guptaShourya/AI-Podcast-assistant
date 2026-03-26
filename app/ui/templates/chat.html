@@ -1,0 +1,99 @@
+{% extends "base.html" %} {% block title %}Chat — Podcast Assistant{% endblock
+%} {% block content %}
+<div class="chat-layout">
+  <!-- Sidebar -->
+  <aside class="chat-sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3>Chats</h3>
+      <button class="btn btn-primary btn-sm" onclick="showNewChatModal()">
+        + New
+      </button>
+    </div>
+    <div class="sidebar-list" id="conversation-list"></div>
+  </aside>
+
+  <!-- Main chat area -->
+  <div class="chat-main">
+    <!-- Objective banner -->
+    <div class="chat-objective" id="objective-banner" style="display: none">
+      <span class="objective-label">Objective:</span>
+      <span class="objective-text" id="objective-text"></span>
+      <button
+        class="objective-edit"
+        onclick="editObjective()"
+        title="Edit objective"
+      >
+        ✎
+      </button>
+    </div>
+
+    <div class="chat-messages" id="messages"></div>
+
+    <div class="chat-input-area">
+      <form id="chat-form" onsubmit="sendMessage(event)">
+        <div class="chat-input-row">
+          <textarea
+            id="chat-input"
+            placeholder="Ask about your podcasts..."
+            rows="1"
+            autofocus
+          ></textarea>
+          <button type="submit" class="btn btn-primary" id="send-btn">
+            Send
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- New Chat Modal -->
+<div
+  class="modal-overlay"
+  id="new-chat-modal"
+  style="display: none"
+  onclick="hideNewChatModal(event)"
+>
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>New Chat</h3>
+    <form onsubmit="createChat(event)">
+      <label
+        >Objective
+        <span style="color: var(--text-muted); font-weight: 400"
+          >(optional)</span
+        ></label
+      >
+      <textarea
+        id="new-chat-objective"
+        placeholder="e.g. SWE pursuing MBA, interested in consulting and VC&#10;e.g. Track personal finance and investment trends"
+        rows="3"
+      ></textarea>
+      <div
+        style="
+          display: flex;
+          gap: 0.5rem;
+          justify-content: flex-end;
+          margin-top: 1rem;
+        "
+      >
+        <button
+          type="button"
+          class="btn"
+          onclick="hideNewChatModal()"
+          style="color: var(--text-muted)"
+        >
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="/static/chat.js"></script>
+
+{% if conversation_id %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => loadConversation({{ conversation_id }}));
+</script>
+{% endif %} {% endblock %}

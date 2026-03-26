@@ -1,25 +1,32 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Podcast Assistant{% endblock %}</title>
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-  <nav>
-    <div class="container">
-      <span class="logo">🎙️ Podcast Assistant</span>
-      <div class="links">
-        <a href="/ui" class="{% if active == 'digest' %}active{% endif %}">Digest</a>
-        <a href="/ui/podcasts" class="{% if active == 'podcasts' %}active{% endif %}">Podcasts</a>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Podcast Assistant{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <nav>
+      <div class="container">
+        <span class="logo">🎙️ Podcast Assistant</span>
+        <div class="links">
+          <a href="/ui" class="{% if active == 'digest' %}active{% endif %}"
+            >Digest</a
+          >
+          <a
+            href="/ui/podcasts"
+            class="{% if active == 'podcasts' %}active{% endif %}"
+            >Podcasts</a
+          >
+          <a href="/ui/chat" class="{% if active == 'chat' %}active{% endif %}"
+            >Chat</a
+          >
+        </div>
       </div>
-    </div>
-  </nav>
-  <main>
-    <div class="container">
-      {% block content %}{% endblock %}
-    </div>
-  </main>
-</body>
+    </nav>
+    <main>
+      <div class="container">{% block content %}{% endblock %}</div>
+    </main>
+  </body>
 </html>

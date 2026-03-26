@@ -2,6 +2,8 @@ import logging
 
 import feedparser
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import (
@@ -16,6 +18,7 @@ from app.db.database import get_session
 from app.db.models import EpisodeStatus
 from app.services.rss import poll_all_feeds, sync_feeds_from_yaml
 from app.services.pipeline import process_pending_episodes
+from app.services.chat import chat_stream
 
 logger = logging.getLogger(__name__)
 
@@ -104,3 +107,101 @@ async def trigger_processing():
         "new_episodes_found": poll_results,
         "episodes_processed": processed,
     }
+
+
+# ── Chat ──────────────────────────────────────────────────────
+
+
+class ChatRequest(BaseModel):
+    conversation_id: int | None = None
+    message: str
+    objective: str | None = None
+
+
+class ConversationCreate(BaseModel):
+    title: str = "New Chat"
+    objective: str | None = None
+
+
+@router.get("/conversations")
+async def list_conversations(session: AsyncSession = Depends(get_session)):
+    convs = await crud.get_conversations(session)
+    return [
+        {
+            "id": c.id,
+            "title": c.title,
+            "objective": c.objective,
+            "created_at": c.created_at.isoformat(),
+            "updated_at": c.updated_at.isoformat(),
+        }
+        for c in convs
+    ]
+
+
+@router.post("/conversations")
+async def create_conversation(body: ConversationCreate, session: AsyncSession = Depends(get_session)):
+    conv = await crud.create_conversation(session, title=body.title, objective=body.objective)
+    return {"id": conv.id, "title": conv.title, "objective": conv.objective}
+
+
+@router.get("/conversations/{conversation_id}/messages")
+async def get_messages(conversation_id: int, session: AsyncSession = Depends(get_session)):
+    conv = await crud.get_conversation(session, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    messages = await crud.get_conversation_messages(session, conversation_id)
+    return [
+        {
+            "id": m.id,
+            "role": m.role.value,
+            "content": m.content,
+            "tool_calls": m.tool_calls,
+            "tool_call_id": m.tool_call_id,
+            "created_at": m.created_at.isoformat(),
+        }
+        for m in messages
+    ]
+
+
+@router.delete("/conversations/{conversation_id}", status_code=204)
+async def delete_conversation(conversation_id: int, session: AsyncSession = Depends(get_session)):
+    deleted = await crud.delete_conversation(session, conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+
+@router.put("/conversations/{conversation_id}/objective")
+async def update_objective(conversation_id: int, body: dict, session: AsyncSession = Depends(get_session)):
+    objective = body.get("objective", "")
+    updated = await crud.update_conversation_objective(session, conversation_id, objective)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"ok": True}
+
+
+@router.post("/chat")
+async def chat_endpoint(body: ChatRequest, session: AsyncSession = Depends(get_session)):
+    conversation_id = body.conversation_id
+
+    # Create conversation if needed
+    if not conversation_id:
+        conv = await crud.create_conversation(
+            session, title="New Chat", objective=body.objective
+        )
+        conversation_id = conv.id
+
+    async def event_stream():
+        # Send conversation_id as first event
+        yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conversation_id})}\n\n"
+
+        async for chunk in chat_stream(conversation_id, body.message):
+            if chunk.startswith("__TOOL__"):
+                tool_name = chunk.replace("__TOOL__", "").strip()
+                yield f"data: {json.dumps({'type': 'tool', 'name': tool_name})}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+
+        yield "data: [DONE]\n\n"
+
+    import json
+    return StreamingResponse(event_stream(), media_type="text/event-stream")

@@ -92,3 +92,17 @@ async def episode_page(request: Request, episode_id: int):
             "active": "digest",
         },
     )
+
+
+@router.get("/chat", response_class=HTMLResponse)
+async def chat_page(request: Request):
+    return templates.TemplateResponse(
+        request, "chat.html", {"active": "chat", "conversation_id": None}
+    )
+
+
+@router.get("/chat/{conversation_id}", response_class=HTMLResponse)
+async def chat_page_with_id(request: Request, conversation_id: int):
+    return templates.TemplateResponse(
+        request, "chat.html", {"active": "chat", "conversation_id": conversation_id}
+    )

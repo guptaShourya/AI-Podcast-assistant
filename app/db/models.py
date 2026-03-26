@@ -24,6 +24,12 @@ class EpisodeStatus(str, enum.Enum):
     failed = "failed"
 
 
+class MessageRole(str, enum.Enum):
+    user = "user"
+    assistant = "assistant"
+    tool = "tool"
+
+
 class Podcast(Base):
     __tablename__ = "podcasts"
 
@@ -31,6 +37,7 @@ class Podcast(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     rss_url: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    category: Mapped[str | None] = mapped_column(String, nullable=True)
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -95,3 +102,48 @@ class Summary(Base):
 
     def __repr__(self) -> str:
         return f"<Summary id={self.id} episode_id={self.episode_id} score={self.listen_score}>"
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String, nullable=False, default="New Chat")
+    objective: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan",
+        order_by="Message.created_at",
+    )
+
+    def __repr__(self) -> str:
+        return f"<Conversation id={self.id} title={self.title!r}>"
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    conversation_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[MessageRole] = mapped_column(Enum(MessageRole), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tool_calls: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    tool_call_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+
+    def __repr__(self) -> str:
+        return f"<Message id={self.id} role={self.role} conv={self.conversation_id}>"
