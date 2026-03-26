@@ -4,6 +4,13 @@ let currentConversationId = null;
 let currentObjective = null;
 let isStreaming = false;
 
+// ── Sidebar toggle (mobile) ─────────────────────────────────
+
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("open");
+  document.getElementById("sidebar-backdrop").classList.toggle("open");
+}
+
 // ── Sidebar ──────────────────────────────────────────────────
 
 async function loadConversations() {
@@ -48,6 +55,11 @@ async function loadConversations() {
 async function loadConversation(id) {
   currentConversationId = id;
   history.replaceState(null, "", "/ui/chat/" + id);
+
+  // Close sidebar on mobile
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebar-backdrop").classList.remove("open");
+
   await loadConversations(); // refresh active state
 
   // Load messages
@@ -260,11 +272,14 @@ function renderMarkdown(text) {
     return 'class="md-score md-score-' + cls + '" data-score="' + s + '"';
   });
   // Colorize relevance badges
-  html = html.replace(/class="md-relevance" data-score="(\d+)"/g, function (_, s) {
-    const n = parseInt(s);
-    const cls = n >= 7 ? "high" : n >= 4 ? "mid" : "low";
-    return 'class="md-relevance md-rel-' + cls + '" data-score="' + s + '"';
-  });
+  html = html.replace(
+    /class="md-relevance" data-score="(\d+)"/g,
+    function (_, s) {
+      const n = parseInt(s);
+      const cls = n >= 7 ? "high" : n >= 4 ? "mid" : "low";
+      return 'class="md-relevance md-rel-' + cls + '" data-score="' + s + '"';
+    },
+  );
 
   return "<p>" + html + "</p>";
 }

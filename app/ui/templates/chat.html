@@ -1,6 +1,9 @@
 {% extends "base.html" %} {% block title %}Chat — Podcast Assistant{% endblock
 %} {% block content %}
 <div class="chat-layout">
+  <!-- Sidebar backdrop (mobile) -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
   <!-- Sidebar -->
   <aside class="chat-sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -14,6 +17,7 @@
 
   <!-- Main chat area -->
   <div class="chat-main">
+    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">☰</button>
     <!-- Objective banner -->
     <div class="chat-objective" id="objective-banner" style="display: none">
       <span class="objective-label">Objective:</span>

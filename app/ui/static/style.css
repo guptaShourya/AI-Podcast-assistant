@@ -637,9 +637,18 @@ h1 {
   flex-shrink: 0;
 }
 
-.md-score-high { background: rgba(52, 211, 153, 0.15); color: var(--green); }
-.md-score-mid  { background: rgba(251, 191, 36, 0.15); color: var(--yellow); }
-.md-score-low  { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+.md-score-high {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--green);
+}
+.md-score-mid {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--yellow);
+}
+.md-score-low {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--red);
+}
 
 /* ── Relevance badge ─────────────────────── */
 
@@ -661,9 +670,18 @@ h1 {
   font-size: 0.68rem;
 }
 
-.md-rel-high { background: rgba(52, 211, 153, 0.12); color: var(--green); }
-.md-rel-mid  { background: rgba(251, 191, 36, 0.12); color: var(--yellow); }
-.md-rel-low  { background: rgba(248, 113, 113, 0.12); color: var(--red); }
+.md-rel-high {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--green);
+}
+.md-rel-mid {
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--yellow);
+}
+.md-rel-low {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--red);
+}
 
 .msg-bubble strong {
   color: var(--text);
@@ -769,4 +787,296 @@ h1 {
 
 .modal textarea:focus {
   border-color: var(--accent);
+}
+
+/* ── Hamburger Toggle (hidden on desktop) ── */
+
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.nav-toggle span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 1px;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+/* ── Sidebar Toggle (mobile chat) ────────── */
+
+.sidebar-toggle {
+  display: none;
+  position: absolute;
+  top: 0.6rem;
+  left: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 1.1rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+/* ── Responsive: Tablet ≤ 768px ──────────── */
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+
+  /* ── Nav hamburger ── */
+  .nav-toggle {
+    display: flex;
+    margin-left: auto;
+  }
+
+  nav .container {
+    flex-wrap: wrap;
+    gap: 0;
+  }
+
+  nav .links {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    gap: 0;
+    padding-top: 0.75rem;
+  }
+
+  nav.open .links {
+    display: flex;
+  }
+
+  nav .links a {
+    padding: 0.5rem 0;
+    font-size: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  nav .links a:last-child {
+    border-bottom: none;
+  }
+
+  /* ── Chat sidebar overlay ── */
+  .sidebar-toggle {
+    display: block;
+  }
+
+  .chat-layout {
+    position: relative;
+  }
+
+  .chat-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    width: 280px;
+    min-width: 280px;
+  }
+
+  .chat-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+  }
+
+  .sidebar-backdrop.open {
+    display: block;
+  }
+
+  /* ── Chat messages full width ── */
+  .msg-user {
+    max-width: 85%;
+  }
+
+  .msg-assistant {
+    max-width: 100%;
+  }
+
+  .chat-messages {
+    padding: 1rem;
+  }
+
+  .chat-input-area {
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* ── Podcast items stack ── */
+  .podcast-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .podcast-item .info {
+    width: 100%;
+  }
+
+  /* ── Episode detail meta wrap ── */
+  .meta {
+    gap: 0.5rem;
+  }
+
+  /* ── Digest cards ── */
+  .card {
+    padding: 1rem;
+  }
+
+  .card-header {
+    gap: 0.75rem;
+  }
+
+  h1 {
+    font-size: 1.3rem;
+  }
+
+  main {
+    padding: 1.5rem 0 3rem;
+  }
+}
+
+/* ── Responsive: Phone ≤ 480px ───────────── */
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 0.75rem;
+  }
+
+  h1 {
+    font-size: 1.15rem;
+  }
+
+  .subtitle {
+    font-size: 0.82rem;
+    margin-bottom: 1.5rem;
+  }
+
+  main {
+    padding: 1rem 0 2rem;
+  }
+
+  /* ── Cards compact ── */
+  .card {
+    padding: 0.85rem;
+    border-radius: 0.6rem;
+  }
+
+  .card p {
+    font-size: 0.82rem;
+  }
+
+  .card-header .info h3 {
+    font-size: 0.9rem;
+  }
+
+  .score {
+    width: 2.2rem;
+    height: 2.2rem;
+    font-size: 0.85rem;
+  }
+
+  .topic-tag {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  /* ── Add form stack ── */
+  .add-form {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .add-form input {
+    width: 100%;
+  }
+
+  /* ── Chat ── */
+  .chat-layout {
+    height: calc(100vh - 54px);
+    margin: -1rem -0.75rem -2rem;
+  }
+
+  .chat-messages {
+    padding: 0.75rem;
+  }
+
+  .msg-bubble {
+    padding: 0.65rem 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .msg-bubble .md-quote {
+    padding: 0.5rem 0.65rem;
+    font-size: 0.82rem;
+  }
+
+  .msg-bubble .md-score {
+    min-width: 1.7rem;
+    height: 1.3rem;
+    font-size: 0.72rem;
+  }
+
+  .md-relevance {
+    font-size: 0.68rem;
+    padding: 0.05rem 0.4rem;
+  }
+
+  .chat-objective {
+    padding: 0.4rem 0.75rem;
+    padding-left: 2.75rem;
+    font-size: 0.75rem;
+  }
+
+  .chat-input-row textarea {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.7rem;
+  }
+
+  /* ── Transcript ── */
+  .transcript {
+    font-size: 0.8rem;
+    padding: 0.75rem;
+    max-height: 300px;
+  }
+
+  /* ── Episode detail ── */
+  .section h2 {
+    font-size: 1rem;
+  }
+
+  /* ── Modal full width ── */
+  .modal {
+    width: 95%;
+    padding: 1.25rem;
+  }
 }
