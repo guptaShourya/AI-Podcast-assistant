@@ -2,6 +2,8 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+import feedparser
+
 from app.db.crud import (
     create_podcast,
     delete_podcast,
@@ -12,7 +14,6 @@ from app.db.crud import (
 )
 from app.db.database import async_session
 from app.db.models import Episode
-from app.services.rss import poll_feed
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -55,11 +56,10 @@ async def add_podcast(rss_url: str = Form(...)):
     async with async_session() as session:
         existing = await get_podcast_by_rss_url(session, rss_url)
         if not existing:
-            entries = await poll_feed(rss_url)
-            name = rss_url
-            if entries:
-                name = entries[0].get("podcast_name", rss_url)
-            await create_podcast(session, name=name, rss_url=rss_url)
+            feed = feedparser.parse(rss_url)
+            name = feed.feed.get("title", rss_url)
+            image_url = feed.feed.get("image", {}).get("href")
+            await create_podcast(session, name=name, rss_url=rss_url, image_url=image_url)
     return RedirectResponse(url="/ui/podcasts", status_code=303)
 
 
