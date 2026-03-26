@@ -2,13 +2,16 @@
 
 > **Author**: Shourya  
 > **Date**: 25 March 2026  
-> **Status**: Draft
+> **Last Updated**: 26 March 2026  
+> **Status**: Implemented & Deployed
 
 ## Overview
 
-A FastAPI backend service that automatically polls podcast RSS feeds, transcribes new episodes via Groq Whisper API, generates structured summaries via Groq Llama 3.3 70B, and delivers a daily digest ranked by "listen-worthiness" — so you can quickly decide which episodes are worth your time.
+A FastAPI service that automatically polls podcast RSS feeds, transcribes episodes via Groq Whisper, generates structured summaries via Groq Llama 3.3 70B, and delivers a ranked daily digest — so you can quickly decide which episodes are worth your time. Includes a conversational AI chat agent for exploring your podcast library through natural language.
 
-Hosted on Azure App Service. Entire AI stack is free (Groq free tier). Infrastructure covered by $150/mo Azure credits.
+Hosted on Azure App Service. Entire AI stack runs on Groq's free tier. Infrastructure covered by Azure credits.
+
+**Live**: `https://podcast-assistant-app.azurewebsites.net`
 
 ---
 
@@ -16,81 +19,87 @@ Hosted on Azure App Service. Entire AI stack is free (Groq free tier). Infrastru
 
 Keeping up with multiple podcast subscriptions is time-consuming. New episodes drop daily across shows, and there's no efficient way to triage which ones deserve a full listen without skimming each one manually.
 
-**Solution**: An automated pipeline that ingests, transcribes, and summarizes every new episode — then ranks them by a listen-worthiness score (1-10), giving you a scannable daily digest.
+**Solution**: An automated pipeline that ingests, transcribes, and summarizes every new episode — then ranks them by a listen-worthiness score (1–10), giving you a scannable daily digest. A chat agent lets you ask questions about episodes, search across transcripts, and manage subscriptions conversationally.
 
 ---
 
 ## Tech Stack
 
-| Component     | Technology                         | Why                                                  |
-| ------------- | ---------------------------------- | ---------------------------------------------------- |
-| Language      | Python 3.12+                       | Best ecosystem for audio/AI libs                     |
-| Framework     | FastAPI (async)                    | High-performance async API, great DX                 |
-| Transcription | Groq Whisper API (large-v3-turbo)  | Free tier: 20 RPS / 2K RPD                           |
-| Summarization | Groq Llama 3.3 70B                 | Free tier: 30 RPM / 14,400 RPD                       |
-| Database      | Azure PostgreSQL Flexible Server   | Free tier (750h/mo B1ms), production-grade           |
-| Hosting       | Azure App Service (B1)             | Always-on, GitHub Actions CI/CD, ~$13/mo             |
-| Audio Storage | Azure Blob Storage                 | Temporary audio staging, <$1/mo                      |
-| Scheduler     | APScheduler                        | Lightweight, no broker dependency                    |
-| MCP Server    | FastMCP (Python MCP SDK)           | Expose tools to AI assistants (Claude Desktop, etc.) |
-| Frontend      | Jinja2 templates served by FastAPI | Minimal, server-rendered UI                          |
+| Component     | Technology                        | Why                                                  |
+| ------------- | --------------------------------- | ---------------------------------------------------- |
+| Language      | Python 3.11                       | Best ecosystem for audio/AI libs                     |
+| Framework     | FastAPI (async)                   | High-performance async API, great DX                 |
+| Transcription | Groq Whisper API (large-v3-turbo) | Free tier: 20 RPS / 2K RPD                           |
+| Summarization | Groq Llama 3.3 70B Versatile      | Free tier: 30 RPM / 14,400 RPD                       |
+| Chat Agent    | Groq Llama 3.3 70B + Tool Calling | Function calling for DB queries, SSE streaming       |
+| Database      | Azure PostgreSQL Flexible Server  | B1ms, production-grade, SSL-encrypted                |
+| Hosting       | Azure App Service (B1 Linux)      | Always-on, container deployment via ACR              |
+| Container     | Docker → Azure Container Registry | Reproducible builds, managed image hosting           |
+| Audio Storage | Azure Blob Storage                | Temporary audio staging, cleaned after transcription |
+| Scheduler     | APScheduler (AsyncIO)             | In-process, no broker dependency                     |
+| MCP Server    | FastMCP (Python MCP SDK)          | Expose tools to AI assistants (Claude Desktop, etc.) |
+| Frontend      | Jinja2 + vanilla JS + CSS         | Server-rendered UI with SSE streaming for chat       |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Azure App Service (B1)                      │
-│                                                                 │
-│  ┌──────────┐    ┌──────────────┐    ┌──────────────────────┐   │
-│  │ Scheduler │───▶│  RSS Parser  │───▶│  New Episode Detect  │   │
-│  │ (6h poll) │    │ (feedparser) │    │  (compare vs DB)     │   │
-│  └──────────┘    └──────────────┘    └──────────┬───────────┘   │
-│                                                  │               │
-│                                                  ▼               │
-│                                      ┌──────────────────────┐   │
-│                                      │   Audio Downloader   │   │
-│                                      │ (httpx → Azure Blob) │   │
-│                                      └──────────┬───────────┘   │
-│                                                  │               │
-│                                                  ▼               │
-│                                      ┌──────────────────────┐   │
-│                                      │   Audio Chunker      │   │
-│                                      │ (pydub, ≤25MB each)  │   │
-│                                      └──────────┬───────────┘   │
-│                                                  │               │
-│                                                  ▼               │
-│                                      ┌──────────────────────┐   │
-│                                      │   Groq Whisper API   │   │
-│                                      │ (large-v3-turbo)     │──▶ Transcript
-│                                      └──────────┬───────────┘   │
-│                                                  │               │
-│                                                  ▼               │
-│                                      ┌──────────────────────┐   │
-│                                      │  Groq Llama 3.3 70B  │   │
-│                                      │  (summarization)     │──▶ Summary + Topics
-│                                      └──────────┬───────────┘     + Score (1-10)
-│                                                  │               │
-│                                                  ▼               │
-│                                      ┌──────────────────────┐   │
-│                                      │  Azure PostgreSQL    │   │
-│                                      │  (Flexible Server)   │   │
-│                                      └───┬──────────┬───────┘   │
-│                                          │          │            │
-│                              ┌───────────┘          └──────┐     │
-│                              ▼                             ▼     │
-│                    ┌──────────────┐              ┌────────────┐  │
-│                    │  REST API    │              │ MCP Server │  │
-│                    │  (FastAPI)   │              │ (FastMCP)  │  │
-│                    └──────┬───────┘              └────────────┘  │
-│                           │                                      │
-│                           ▼                                      │
-│                    ┌──────────────┐                               │
-│                    │   Web UI     │                               │
-│                    │  (Jinja2)    │                               │
-│                    └──────────────┘                               │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                      Azure App Service (B1 Linux)                    │
+│                      Docker container via ACR                        │
+│                                                                      │
+│  ┌──────────┐    ┌──────────────┐    ┌───────────────────────┐       │
+│  │ Scheduler │───▶│  RSS Parser  │───▶│  New Episode Detect   │       │
+│  │ (6h poll) │    │ (feedparser) │    │  (GUID dedup vs DB)   │       │
+│  └──────────┘    └──────────────┘    └──────────┬────────────┘       │
+│                                                  │                    │
+│  ┌──────────┐                                    │                    │
+│  │ Add Pod- │─── poll_feed() ───────────────────▶│                    │
+│  │ cast API │    + BackgroundTasks                │                    │
+│  └──────────┘                                    ▼                    │
+│                                      ┌───────────────────────┐       │
+│                                      │   Audio Downloader    │       │
+│                                      │ (httpx → Azure Blob)  │       │
+│                                      └──────────┬────────────┘       │
+│                                                  │                    │
+│                                                  ▼                    │
+│                                      ┌───────────────────────┐       │
+│                                      │   Audio Chunker       │       │
+│                                      │ (pydub, ≤25MB chunks) │       │
+│                                      └──────────┬────────────┘       │
+│                                                  │                    │
+│                                                  ▼                    │
+│                                      ┌───────────────────────┐       │
+│                                      │   Groq Whisper API    │       │
+│                                      │ (large-v3-turbo)      │──▶ Transcript
+│                                      └──────────┬────────────┘       │
+│                                                  │                    │
+│                                                  ▼                    │
+│                                      ┌───────────────────────┐       │
+│                                      │  Groq Llama 3.3 70B   │       │
+│                                      │  (summarize + score)   │──▶ Summary +
+│                                      └──────────┬────────────┘    Topics +
+│                                                  │                Score (1-10)
+│                                                  ▼                    │
+│                                      ┌───────────────────────┐       │
+│                                      │  Azure PostgreSQL     │       │
+│                                      │  (Flexible Server)    │       │
+│                                      └──┬─────┬─────┬────────┘       │
+│                                         │     │     │                 │
+│                          ┌──────────────┘     │     └──────────┐      │
+│                          ▼                    ▼                ▼      │
+│               ┌──────────────┐    ┌────────────────┐  ┌────────────┐ │
+│               │  REST API    │    │  Chat Agent    │  │ MCP Server │ │
+│               │  (FastAPI)   │    │  (Tool Calling │  │ (FastMCP)  │ │
+│               └──────┬───────┘    │   + SSE)       │  └────────────┘ │
+│                      │            └───────┬────────┘                  │
+│                      ▼                    ▼                           │
+│               ┌────────────────────────────────────┐                 │
+│               │           Web UI (Jinja2)          │                 │
+│               │  Digest · Podcasts · Chat · Detail │                 │
+│               └────────────────────────────────────┘                 │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -101,40 +110,48 @@ Keeping up with multiple podcast subscriptions is time-consuming. New episodes d
 ai-podcast-assistant/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                 # FastAPI app + lifespan (scheduler init)
-│   ├── config.py               # Settings via pydantic-settings
+│   ├── main.py                 # FastAPI app + composite lifespan (DB, scheduler, MCP)
+│   ├── config.py               # Settings via pydantic-settings (.env)
 │   ├── db/
 │   │   ├── __init__.py
-│   │   ├── models.py           # SQLAlchemy models: Podcast, Episode, Summary
-│   │   ├── database.py         # Async engine + session factory
-│   │   └── crud.py             # Database operations
+│   │   ├── models.py           # SQLAlchemy models: Podcast, Episode, Summary, Conversation, Message
+│   │   ├── database.py         # Async engine + session factory (Azure SSL handling)
+│   │   └── crud.py             # All database operations (podcast, episode, summary, conversation)
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── rss.py              # RSS feed parser (feedparser)
-│   │   ├── audio.py            # Download + chunk audio files
-│   │   ├── transcription.py    # Groq Whisper API client
-│   │   ├── summarizer.py       # Groq Llama 3.3 70B summarization
-│   │   └── pipeline.py         # Orchestrator: RSS → download → transcribe → summarize → store
+│   │   ├── rss.py              # RSS feed parser + polling (feedparser, certifi SSL)
+│   │   ├── audio.py            # Download → blob upload → chunk → cleanup
+│   │   ├── transcription.py    # Groq Whisper API client (retry + backoff)
+│   │   ├── summarizer.py       # Groq Llama 3.3 70B structured summarization
+│   │   ├── pipeline.py         # Orchestrator: download → transcribe → summarize → store
+│   │   └── chat.py             # Chat agent: Groq tool-calling + SSE streaming
 │   ├── api/
 │   │   ├── __init__.py
-│   │   ├── routes.py           # REST endpoints
+│   │   ├── routes.py           # REST + Chat SSE endpoints (BackgroundTasks on add)
 │   │   └── schemas.py          # Pydantic request/response models
 │   ├── mcp/
 │   │   ├── __init__.py
-│   │   └── server.py           # MCP server exposing tools
+│   │   └── server.py           # FastMCP tools for AI assistant integration
 │   ├── scheduler/
 │   │   ├── __init__.py
-│   │   └── jobs.py             # APScheduler job definitions
+│   │   └── jobs.py             # APScheduler job: poll + process every 6h
 │   └── ui/
-│       └── templates/          # Jinja2 templates for web UI
-│           ├── base.html
-│           ├── digest.html
-│           ├── podcasts.html
-│           └── episode.html
+│       ├── views.py            # Server-rendered routes (Jinja2)
+│       ├── static/
+│       │   ├── chat.js         # Chat client: SSE, markdown, typing indicator
+│       │   └── style.css       # Dark theme, responsive, animations
+│       └── templates/
+│           ├── base.html       # Layout: nav, hamburger menu, content block
+│           ├── digest.html     # Daily digest: scored episode cards
+│           ├── podcasts.html   # Subscription management + add form with loader
+│           ├── episode.html    # Full episode detail: summary, topics, transcript
+│           └── chat.html       # Chat UI: sidebar, messages, objective, modal
 ├── data/                       # Temporary audio downloads (gitignored)
-├── feeds.yaml                  # User's podcast RSS feed list
+├── feeds.yaml                  # Seed podcast RSS feeds
 ├── requirements.txt
-├── .env.example                # GROQ_API_KEY, AZURE_PG_CONNECTION_STRING, AZURE_BLOB_CONNECTION_STRING
+├── Dockerfile                  # python:3.11-slim + ffmpeg
+├── .dockerignore
+├── .env.example
 ├── .gitignore
 └── README.md
 ```
@@ -151,6 +168,7 @@ ai-podcast-assistant/
 | name      | String       | Not null           |
 | rss_url   | String       | Not null, unique   |
 | image_url | String       | Nullable           |
+| category  | String       | Nullable           |
 | added_at  | DateTime     | Default: now (UTC) |
 
 ### Episode
@@ -179,8 +197,30 @@ ai-podcast-assistant/
 | summary_text    | Text                      | Not null           |
 | key_topics      | JSON (list of strings)    | Not null           |
 | highlights      | JSON (list of strings)    | Not null           |
-| listen_score    | Integer (1-10)            | Not null           |
+| listen_score    | Integer (1–10)            | Not null           |
 | created_at      | DateTime                  | Default: now (UTC) |
+
+### Conversation
+
+| Column     | Type         | Constraints        |
+| ---------- | ------------ | ------------------ |
+| id         | Integer (PK) | Auto-increment     |
+| title      | String       | Not null           |
+| objective  | Text         | Nullable           |
+| created_at | DateTime     | Default: now (UTC) |
+| updated_at | DateTime     | Auto-updated       |
+
+### Message
+
+| Column          | Type                           | Constraints                 |
+| --------------- | ------------------------------ | --------------------------- |
+| id              | Integer (PK)                   | Auto-increment              |
+| conversation_id | Integer (FK → Conversation.id) | Not null, on delete cascade |
+| role            | Enum (user / assistant / tool) | Not null                    |
+| content         | Text                           | Nullable                    |
+| tool_calls      | JSON                           | Nullable                    |
+| tool_call_id    | String                         | Nullable                    |
+| created_at      | DateTime                       | Default: now (UTC)          |
 
 ---
 
@@ -191,92 +231,190 @@ ai-podcast-assistant/
 | Method   | Endpoint                 | Description                                     |
 | -------- | ------------------------ | ----------------------------------------------- |
 | `GET`    | `/podcasts`              | List all subscribed podcasts                    |
-| `POST`   | `/podcasts`              | Subscribe to a new podcast (body: `{rss_url}`)  |
-| `DELETE` | `/podcasts/{id}`         | Remove a podcast subscription                   |
-| `GET`    | `/episodes`              | List episodes (filter by podcast, date, status) |
+| `POST`   | `/podcasts`              | Subscribe + auto-poll + background process      |
+| `DELETE` | `/podcasts/{id}`         | Remove a podcast and all its episodes           |
+| `GET`    | `/episodes`              | List episodes (filter by podcast_id, status)    |
 | `GET`    | `/episodes/{id}/summary` | Get full summary for an episode                 |
 | `GET`    | `/daily-digest`          | Summaries from last 24h, ranked by listen score |
-| `POST`   | `/process`               | Manually trigger the processing pipeline        |
+| `POST`   | `/process`               | Manually trigger sync + poll + process pipeline |
+
+### Chat API (SSE)
+
+| Method   | Endpoint                        | Description                                       |
+| -------- | ------------------------------- | ------------------------------------------------- |
+| `POST`   | `/chat`                         | Stream chat response (SSE: meta/tool/text events) |
+| `GET`    | `/conversations`                | List all conversations                            |
+| `POST`   | `/conversations`                | Create conversation with optional objective       |
+| `GET`    | `/conversations/{id}/messages`  | Get message history                               |
+| `DELETE` | `/conversations/{id}`           | Delete conversation                               |
+| `PUT`    | `/conversations/{id}/objective` | Update conversation objective                     |
 
 ### MCP Tools
 
 | Tool                           | Description                                      |
 | ------------------------------ | ------------------------------------------------ |
 | `get_daily_digest()`           | Today's episode summaries ranked by listen score |
-| `search_episodes(query: str)`  | Keyword search across summaries                  |
+| `search_episodes(query: str)`  | Keyword search across summaries and transcripts  |
 | `get_podcast_summary(id: int)` | Full summary for a specific episode              |
 | `add_podcast(rss_url: str)`    | Subscribe to a new podcast                       |
 | `list_podcasts()`              | List all subscriptions                           |
+
+### Web UI Routes
+
+| Route              | Page                                             |
+| ------------------ | ------------------------------------------------ |
+| `/ui`              | Daily digest — episode cards ranked by score     |
+| `/ui/podcasts`     | Manage subscriptions (add/remove)                |
+| `/ui/episode/{id}` | Full episode detail: summary, topics, transcript |
+| `/ui/chat`         | Chat interface (new conversation)                |
+| `/ui/chat/{id}`    | Chat interface (resume conversation)             |
+
+---
+
+## Chat Agent
+
+The chat agent provides a conversational interface to the podcast library using Groq Llama 3.3 70B with function calling.
+
+### Capabilities
+
+- Browse and search the daily digest
+- Full-text search across episode titles, summaries, topics, and transcripts
+- Drill into episode details (full summary, highlights, transcript)
+- Add/remove podcast subscriptions
+- Categorize podcasts
+- Personalized responses based on a per-conversation objective (e.g., "I'm interested in AI and neuroscience")
+
+### Tool Definitions (7)
+
+| Tool                   | Parameters                       | Description                         |
+| ---------------------- | -------------------------------- | ----------------------------------- |
+| `get_daily_digest`     | —                                | Last 24h summaries, ranked by score |
+| `search_episodes`      | `query: str`                     | ILIKE search across all text fields |
+| `get_episode_detail`   | `episode_id: int`                | Full summary + transcript           |
+| `list_podcasts`        | —                                | All subscriptions with categories   |
+| `add_podcast`          | `rss_url: str`                   | Subscribe to new feed               |
+| `remove_podcast`       | `podcast_id: int`                | Unsubscribe from feed               |
+| `set_podcast_category` | `podcast_id: int, category: str` | Update podcast category             |
+
+### Dual Scoring
+
+The chat agent displays two scores per episode:
+
+- **Listen Score (1–10)**: Pre-computed by the summarizer, reflects general listen-worthiness
+- **Relevance Score**: Computed at chat time based on the user's stated objective
+
+### Streaming
+
+Responses are delivered via Server-Sent Events (SSE):
+
+- `type: meta` — Conversation ID and metadata
+- `type: tool` — Tool execution status updates (shown as pulsing pills in the UI)
+- `type: text` — Streamed text chunks with rich markdown formatting
+
+### Tool Loop
+
+The agent runs up to 5 sequential tool-calling rounds per message. Each round: call Llama → execute tool calls → feed results back → repeat until a text response is generated.
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Foundation — Data Layer + RSS Ingestion
+All phases are **complete and deployed**.
 
-1. **Project scaffolding** — Directory structure, `requirements.txt`, `.env.example`, `config.py` with pydantic-settings
-2. **Database models** — SQLAlchemy async models for Podcast, Episode, Summary using asyncpg driver
-3. **RSS service** — Parse feeds from `feeds.yaml`, detect new episodes by GUID comparison against DB, insert as `pending`
-4. **Feed config** — `feeds.yaml` with `{name, rss_url}` entries
+### Phase 1: Foundation ✅
 
-### Phase 2: Audio Processing Pipeline
+- Project scaffolding, `requirements.txt`, `config.py` with pydantic-settings
+- SQLAlchemy async models (Podcast, Episode, Summary) with asyncpg
+- RSS service with feedparser, GUID dedup, 24h lookback window
+- `feeds.yaml` seed feeds
 
-5. **Audio downloader** — Async streaming download via httpx → Azure Blob Storage. Handle MP3/M4A formats
-6. **Audio chunker** — Split files >25MB into ≤25MB segments using pydub
-7. **Groq transcription service** — Send audio chunks to Groq Whisper API, concatenate transcripts, exponential backoff for rate limits
-8. **Groq summarization service** — Structured prompt to Llama 3.3 70B requesting: one-paragraph summary, key topics list, notable quotes/highlights, listen-worthiness score (1-10)
-9. **Pipeline orchestrator** — Chains steps 5→8. Fetches pending episodes, processes each, updates DB status. Errors mark episode as `failed` and continue to next
+### Phase 2: Audio Processing Pipeline ✅
 
-### Phase 3: Scheduler + API
+- Async streaming download via httpx → Azure Blob Storage (MP3/M4A)
+- Audio chunking with pydub (≤25MB per chunk, tiny-chunk merging)
+- Groq Whisper transcription with exponential backoff (3 retries)
+- Groq Llama 3.3 70B structured summarization (JSON output: summary, topics, highlights, score)
+- Pipeline orchestrator with error isolation and cleanup
 
-10. **Scheduler setup** — APScheduler with configurable interval (default: 6 hours). Triggers RSS poll → pipeline for new episodes
-11. **REST API endpoints** — All routes from the API table above, with Pydantic request/response schemas
-12. **Pydantic schemas** — Typed models for all request/response payloads
+### Phase 3: Scheduler + API ✅
 
-### Phase 4: MCP Server
+- APScheduler AsyncIO (6h interval), configurable via `POLL_INTERVAL_HOURS`
+- Full REST API with Pydantic schemas
+- Manual trigger endpoint (`POST /process`)
 
-13. **FastMCP server** — Expose all MCP tools from the table above. Connects to the same DB and service layer as the REST API
+### Phase 4: MCP Server ✅
 
-### Phase 5: Web UI
+- 5 FastMCP tools mounted on the same app
+- Shared service layer with REST API
 
-14. **Jinja2 dashboard** — Three pages:
-    - **Home / Digest**: Today's episodes as cards (summary, topics, listen score, link to original)
-    - **Podcasts**: Manage subscriptions (add/remove)
-    - **Episode detail**: Full summary, transcript, metadata
+### Phase 5: Web UI ✅
 
-### Phase 6: Polish
+- Jinja2 server-rendered dashboard (dark theme)
+- Pages: Digest, Podcasts, Episode Detail
+- Score badges (color-coded), topic tags, transcript viewer
 
-15. **Cleanup logic** — Delete audio from Blob Storage after transcription completes
-16. **README** — Setup instructions, architecture diagram, environment variable reference
+### Phase 6: Chat Agent ✅
+
+- Conversation/Message models
+- Groq Llama 3.3 70B with function-calling orchestration
+- 7 tools, dual scoring (listen + relevance), SSE streaming
+- Rich markdown rendering in the browser (custom parser)
+- Objective-based personalization per conversation
+
+### Phase 7: UX Polish + Deployment ✅
+
+- Responsive design: hamburger nav, mobile sidebar overlay, tablet/phone breakpoints
+- Typing indicator (animated bouncing dots)
+- Podcast add spinner/loader with disabled button state
+- Background processing on podcast add (BackgroundTasks)
+- Docker containerization (python:3.11-slim + ffmpeg)
+- Azure deployment: ACR → App Service (B1 Linux, Always On)
 
 ---
 
 ## Key Design Decisions
 
-| Decision                                      | Rationale                                                             |
-| --------------------------------------------- | --------------------------------------------------------------------- |
-| **Groq for all AI** (Whisper + Llama 3.3 70B) | Single provider, entirely free, one API key to manage                 |
-| **Azure PostgreSQL** over SQLite              | Production-grade, deployed, better resume signal, backed by free tier |
-| **Azure App Service (B1)**                    | Always-on with GitHub Actions CI/CD, ~$13/mo from credits             |
-| **Azure Blob Storage** for audio staging      | Upload → transcribe → delete. Avoids App Service disk limits          |
-| **APScheduler** over Celery                   | No Redis/broker dependency, sufficient for personal scale             |
-| **feeds.yaml + REST API** for feed management | Flexible — bulk configure via file or manage via API/UI               |
-| **Listen-worthiness score (1-10)**            | Core UX differentiator. Pre-ranked digest saves decision time         |
-| **Audio deleted post-transcription**          | Transcripts stored in DB; no storage bloat                            |
+| Decision                                           | Rationale                                                                    |
+| -------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Groq for all AI** (Whisper + Llama 3.3 70B)      | Single provider, entirely free, one API key                                  |
+| **Azure PostgreSQL** over SQLite                   | Production-grade, deployed alongside app, SSL-encrypted                      |
+| **Azure Blob Storage** for audio staging           | Upload → transcribe → delete. Avoids App Service 1GB disk limits             |
+| **APScheduler (in-process)** over Celery           | No Redis/broker needed, sufficient for single-instance personal use          |
+| **SSE** over WebSockets for chat                   | Simpler (unidirectional server→client), works through Azure proxies          |
+| **Tool-calling loop** (max 5 rounds)               | Lets the agent chain multiple DB queries per user message without runaway    |
+| **Dual scoring** (listen + relevance)              | Listen score is static (computed once); relevance is dynamic per-user intent |
+| **Background processing on add**                   | Episodes are transcribed/summarized immediately, no 6h wait                  |
+| **Audio deleted post-transcription**               | Transcripts stored in DB; blob is temporary staging only                     |
+| **Server-rendered UI + vanilla JS**                | No build step, no framework overhead, fast initial loads                     |
+| **Docker + ACR** over GitHub Actions deploy        | Single `az acr build` command, managed image registry                        |
+| **feeds.yaml + REST API + UI** for feed management | Three ways to manage feeds: bulk config, API, or browser                     |
 
 ---
 
-## Azure Cost Estimate
+## Azure Infrastructure
+
+| Resource                   | SKU / Config                  | Region     |
+| -------------------------- | ----------------------------- | ---------- |
+| Resource Group             | `rg-podcast-assistant`        | Central US |
+| PostgreSQL Flexible Server | B1ms, 32GB storage            | Central US |
+| Storage Account            | `podcastassistantstor`        | Central US |
+| Blob Container             | `podcast-audio`               | —          |
+| Container Registry         | Basic (`podcastassistantacr`) | Central US |
+| App Service Plan           | B1 Linux                      | Central US |
+| Web App                    | `podcast-assistant-app`       | Central US |
+
+**App Service Config**: Always On enabled, `WEBSITES_PORT=8000`, environment variables set via Application Settings.
+
+### Cost Estimate
 
 | Resource                   | Monthly Cost            |
 | -------------------------- | ----------------------- |
 | Groq (Whisper + Llama 3.3) | **$0** (free tier)      |
 | App Service B1             | ~$13                    |
-| PostgreSQL Flexible B1ms   | ~$15 (or free tier)     |
+| PostgreSQL Flexible B1ms   | ~$15                    |
+| Container Registry Basic   | ~$5                     |
 | Blob Storage               | <$1                     |
-| **Total**                  | **~$30 of $150 budget** |
-
-Remaining ~$120/mo available for scaling, experimentation, or added Azure services.
+| **Total**                  | **~$34 of $150 budget** |
 
 ---
 
@@ -285,36 +423,22 @@ Remaining ~$120/mo available for scaling, experimentation, or added Azure servic
 **Whisper (transcription)**:
 
 - Limit: 2,000 requests/day, 20 requests/second
-- A 60-min episode at 128kbps ≈ 60MB → ~3 chunks (25MB each) → 3 requests
+- A 60-min episode at 128kbps ≈ 60MB → ~3 chunks → 3 requests
 - 10 new episodes/day → ~30 requests → **1.5% of daily limit**
 
-**Llama 3.3 70B (summarization)**:
+**Llama 3.3 70B (summarization + chat)**:
 
 - Limit: 14,400 requests/day, 30 requests/minute
-- 1 request per episode (transcript → summary)
-- 10 new episodes/day → 10 requests → **0.07% of daily limit**
+- Summarization: 1 request per episode
+- Chat: ~2–6 requests per user message (tool loop rounds)
+- 10 episodes + 50 chat messages/day → ~310 requests → **2.2% of daily limit**
 
 Both limits provide **massive headroom** for personal use.
 
 ---
 
-## Verification Plan
-
-| #   | Test                                                             | Expected Result                                             |
-| --- | ---------------------------------------------------------------- | ----------------------------------------------------------- |
-| 1   | Add 2-3 test RSS feeds (e.g., Lex Fridman, a daily news podcast) | Feeds stored in DB                                          |
-| 2   | Run RSS parser                                                   | New episodes detected and inserted with `status=pending`    |
-| 3   | Trigger pipeline manually (`POST /process`)                      | Full flow: download → transcribe → summarize → store        |
-| 4   | `GET /daily-digest`                                              | Structured JSON with summaries, topics, and listen scores   |
-| 5   | Connect MCP server to Claude Desktop                             | "What are my new podcast episodes?" invokes tools correctly |
-| 6   | Open web UI                                                      | Dashboard renders episode cards with scores                 |
-| 7   | Wait for scheduler auto-trigger                                  | New episodes processed without manual intervention          |
-| 8   | Use an invalid audio URL                                         | Episode marked as `failed`, pipeline continues to next      |
-
----
-
 ## Scope
 
-**Included**: RSS polling, audio transcription, LLM summarization, listen-worthiness scoring, REST API, MCP server, basic web UI, podcast subscription management
+**Implemented**: RSS polling, audio transcription, LLM summarization, listen-worthiness scoring, REST API, MCP server, web UI (responsive), conversational chat agent with tool-calling, dual scoring, SSE streaming, Docker deployment, Azure infrastructure
 
-**Excluded**: User authentication, email digests, podcast discovery/search, mobile app, multi-user support, episode playback
+**Not implemented**: User authentication (Google OAuth plan exists), email digests, podcast discovery/recommendation, mobile app, multi-user support, episode playback
