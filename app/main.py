@@ -5,20 +5,24 @@ from fastapi import FastAPI
 
 from app.db.database import engine
 from app.db.models import Base
+from app.mcp.server import mcp
 from app.scheduler.jobs import start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
 
+mcp_app = mcp.http_app()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables + start scheduler
+    # Startup: create tables + start scheduler + MCP lifespan
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created")
     start_scheduler()
 
-    yield
+    async with mcp_app.router.lifespan_context(app):
+        yield
 
     # Shutdown
     stop_scheduler()
@@ -42,6 +46,7 @@ def create_app() -> FastAPI:
     from app.api.routes import router
 
     app.include_router(router)
+    app.mount("/", mcp_app)
 
     return app
 

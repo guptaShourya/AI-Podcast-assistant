@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import String, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -117,6 +117,33 @@ async def get_daily_digest(session: AsyncSession) -> list[dict]:
         .options(selectinload(Episode.summary), selectinload(Episode.podcast))
         .join(Summary)
         .where(Summary.created_at >= since)
+        .order_by(Summary.listen_score.desc())
+    )
+    episodes = result.scalars().all()
+    return [
+        {
+            "episode": ep,
+            "podcast": ep.podcast,
+            "summary": ep.summary,
+        }
+        for ep in episodes
+        if ep.summary
+    ]
+
+
+async def search_episodes(session: AsyncSession, query: str) -> list[dict]:
+    pattern = f"%{query}%"
+    result = await session.execute(
+        select(Episode)
+        .options(selectinload(Episode.summary), selectinload(Episode.podcast))
+        .join(Summary)
+        .where(
+            or_(
+                Episode.title.ilike(pattern),
+                Summary.summary_text.ilike(pattern),
+                Summary.key_topics.cast(String).ilike(pattern),
+            )
+        )
         .order_by(Summary.listen_score.desc())
     )
     episodes = result.scalars().all()
