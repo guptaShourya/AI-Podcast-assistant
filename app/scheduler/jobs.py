@@ -35,8 +35,15 @@ def start_scheduler() -> None:
         name="Poll RSS feeds and process new episodes",
         replace_existing=True,
     )
+    # Run once shortly after startup to catch up on missed episodes
+    scheduler.add_job(
+        poll_and_process,
+        id="poll_and_process_startup",
+        name="Startup catch-up poll",
+        replace_existing=True,
+    )
     scheduler.start()
-    logger.info("Scheduler started (interval: every %dh)", settings.poll_interval_hours)
+    logger.info("Scheduler started (interval: every %dh, startup run scheduled)", settings.poll_interval_hours)
 
 
 def stop_scheduler() -> None:

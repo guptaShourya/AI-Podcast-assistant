@@ -27,8 +27,12 @@ router = APIRouter(prefix="/ui", tags=["ui"])
 
 @router.get("", response_class=HTMLResponse)
 async def digest_page(request: Request):
+    from sqlalchemy import func
+    from app.db.models import Summary
     async with async_session() as session:
         digest = await get_daily_digest(session)
+        result = await session.execute(select(func.max(Summary.created_at)))
+        last_updated = result.scalar_one_or_none()
     items = []
     for d in digest:
         items.append(
@@ -39,8 +43,17 @@ async def digest_page(request: Request):
             }
         )
     return templates.TemplateResponse(
-        request, "digest.html", {"digest": items, "active": "digest"}
+        request, "digest.html", {"digest": items, "active": "digest", "last_updated": last_updated}
     )
+
+
+@router.post("/refresh")
+async def manual_refresh(background_tasks: BackgroundTasks):
+    from app.services.rss import sync_feeds_from_yaml, poll_all_feeds
+    await sync_feeds_from_yaml()
+    await poll_all_feeds()
+    background_tasks.add_task(process_pending_episodes)
+    return RedirectResponse(url="/ui", status_code=303)
 
 
 @router.get("/podcasts", response_class=HTMLResponse)

@@ -116,6 +116,18 @@ async def trigger_processing():
     }
 
 
+@router.get("/last-updated")
+async def last_updated(session: AsyncSession = Depends(get_session)):
+    """Return the timestamp of the most recently created summary."""
+    from sqlalchemy import func, select
+    from app.db.models import Summary
+    result = await session.execute(
+        select(func.max(Summary.created_at))
+    )
+    latest = result.scalar_one_or_none()
+    return {"last_updated": latest.isoformat() if latest else None}
+
+
 # ── Chat ──────────────────────────────────────────────────────
 
 
