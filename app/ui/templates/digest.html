@@ -9,16 +9,28 @@ endblock %} {% block content %}
   </div>
   <div class="refresh-bar">
     <span class="last-updated" id="lastUpdated">
-      {% if last_updated %}
-        Updated {{ last_updated.strftime('%b %d, %H:%M') }} UTC
-      {% else %}
-        Never updated
-      {% endif %}
+      {% if last_updated %} Updated {{ last_updated.strftime('%b %d, %H:%M') }}
+      UTC {% else %} Never updated {% endif %}
     </span>
     <form action="/ui/refresh" method="post" id="refreshForm">
-      <button type="submit" class="btn-refresh" id="refreshBtn" title="Poll feeds & process new episodes">
-        <svg class="refresh-icon" id="refreshIcon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M13.65 2.35A7.958 7.958 0 008 0C3.58 0 .01 3.58.01 8S3.58 16 8 16c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 018 14 6 6 0 012 8a6 6 0 016-6c1.66 0 3.14.69 4.22 1.78L9 7h7V0l-2.35 2.35z" fill="currentColor"/>
+      <button
+        type="submit"
+        class="btn-refresh"
+        id="refreshBtn"
+        title="Poll feeds & process new episodes"
+      >
+        <svg
+          class="refresh-icon"
+          id="refreshIcon"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+        >
+          <path
+            d="M13.65 2.35A7.958 7.958 0 008 0C3.58 0 .01 3.58.01 8S3.58 16 8 16c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 018 14 6 6 0 012 8a6 6 0 016-6c1.66 0 3.14.69 4.22 1.78L9 7h7V0l-2.35 2.35z"
+            fill="currentColor"
+          />
         </svg>
         <span id="refreshText">Refresh</span>
       </button>
@@ -61,13 +73,15 @@ endblock %} {% block content %}
 {% endif %}
 
 <script>
-document.getElementById('refreshForm').addEventListener('submit', function(e) {
-  const btn = document.getElementById('refreshBtn');
-  const icon = document.getElementById('refreshIcon');
-  const text = document.getElementById('refreshText');
-  btn.disabled = true;
-  icon.classList.add('spinning');
-  text.textContent = 'Refreshing…';
-});
+  document
+    .getElementById("refreshForm")
+    .addEventListener("submit", function (e) {
+      const btn = document.getElementById("refreshBtn");
+      const icon = document.getElementById("refreshIcon");
+      const text = document.getElementById("refreshText");
+      btn.disabled = true;
+      icon.classList.add("spinning");
+      text.textContent = "Refreshing…";
+    });
 </script>
 {% endblock %}
