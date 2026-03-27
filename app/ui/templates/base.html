@@ -30,8 +30,77 @@
             >Chat</a
           >
         </div>
+        <button
+          class="help-btn"
+          onclick="document.getElementById('helpModal').classList.add('open')"
+          aria-label="Help"
+          title="How it works"
+        >
+          ?
+        </button>
       </div>
     </nav>
+
+    <div
+      class="help-modal-overlay"
+      id="helpModal"
+      onclick="if (event.target === this) this.classList.remove('open');"
+    >
+      <div class="help-modal">
+        <button
+          class="help-modal-close"
+          onclick="
+            document.getElementById('helpModal').classList.remove('open')
+          "
+        >
+          &times;
+        </button>
+        <h2>How Podcast Assistant Works</h2>
+        <div class="help-section">
+          <h3>📡 Automatic Ingestion</h3>
+          <p>
+            Subscribe to any podcast via RSS. The system polls feeds every 6
+            hours (and on startup) to detect new episodes automatically.
+          </p>
+        </div>
+        <div class="help-section">
+          <h3>🎧 Transcription &amp; Summarization</h3>
+          <p>
+            New episodes are downloaded, transcribed using Groq Whisper, then
+            summarized by Llama 3.3 70B. Each episode gets a structured summary,
+            key topics, highlights, and a
+            <strong>listen-worthiness score (1–10)</strong>.
+          </p>
+        </div>
+        <div class="help-section">
+          <h3>📊 Daily Digest</h3>
+          <p>
+            The <strong>Digest</strong> page shows episodes from the last 24
+            hours ranked by score. High scores (7+) mean "worth your time", low
+            scores (1–3) mean "safe to skip". Hit <strong>Refresh</strong> to
+            manually pull new episodes.
+          </p>
+        </div>
+        <div class="help-section">
+          <h3>💬 Chat Agent</h3>
+          <p>
+            The <strong>Chat</strong> page lets you talk to an AI that knows
+            your podcast library. Ask it to search episodes, summarize topics,
+            compare shows, or get personalized recommendations. Set an
+            <strong>objective</strong> (e.g. "I'm interested in AI") to get
+            relevance scores alongside listen scores.
+          </p>
+        </div>
+        <div class="help-section">
+          <h3>➕ Managing Podcasts</h3>
+          <p>
+            Go to <strong>Podcasts</strong> to add or remove subscriptions.
+            Paste any RSS feed URL — episodes start processing in the background
+            immediately.
+          </p>
+        </div>
+      </div>
+    </div>
     <main>
       <div class="container">{% block content %}{% endblock %}</div>
     </main>
